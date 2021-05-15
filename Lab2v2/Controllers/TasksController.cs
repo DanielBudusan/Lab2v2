@@ -23,10 +23,18 @@ namespace Lab2v2.Controllers
             _context = context;
         }
 
+
+        [HttpGet]
+        [Route("filter/status")]
+        public ActionResult<IEnumerable<Task>> FilterTasksByStatus(string status)
+        {
+            return _context.Tasks.Where(t => t.Status == status).ToList();
+        }
+
         //date format: 2021/05/17 19:00:00
         [HttpGet]
-        [Route("filter")]
-        public ActionResult<IEnumerable<Task>> FilterTasks(string startDateTime, string endDateTime )
+        [Route("filter/deadline")]
+        public ActionResult<IEnumerable<Task>> FilterTasksByDeadline (string startDateTime, string endDateTime )
         {
 
             DateTime startDate = Convert.ToDateTime(startDateTime);
