@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+
 
 namespace Lab2v2.ViewModels
 {
@@ -15,5 +15,8 @@ namespace Lab2v2.ViewModels
         public string Importance { get; set; }
         public string Status { get; set; }
         public DateTime ClosedAt { get; set; }
+        public int ProjectId { get; set; }
+
+
     }
 }
