@@ -2,6 +2,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Lab2v2.Data;
 using Lab2v2.Models;
+using Lab2v2.Services;
 using Lab2v2.Validators;
 using Lab2v2.ViewModels;
 using Microsoft.AspNetCore.Authentication;
@@ -106,6 +107,9 @@ namespace Lab2v2
 
             services.AddTransient<IValidator<TaskViewModel>, TaskValidator>();
             services.AddTransient<IValidator<Comment>, CommentValidator>();
+            services.AddTransient<IAuthManagementService, AuthManagementService>();
+            services.AddTransient<ITaskService, TaskService>();
+            services.AddTransient<IProjectService, ProjectService>();
         }
          
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

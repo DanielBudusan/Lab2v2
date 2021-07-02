@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Lab2v2.Data;
 using Lab2v2.Models;
+using Lab2v2.Services;
 using Lab2v2.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -19,13 +20,11 @@ namespace Lab2v2.Controllers
     [Route("api/[controller]")]
     public class ProjectsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
+        private IProjectService _projectService;
         private readonly UserManager<ApplicationUser> _userManager;
-        public ProjectsController(ApplicationDbContext context, IMapper mapper, UserManager<ApplicationUser> userManager)
+        public ProjectsController(IProjectService projectService, UserManager<ApplicationUser> userManager)
         {
-            _context = context;
-            _mapper = mapper;
+            _projectService = projectService;
             _userManager = userManager;
         }
 
@@ -34,110 +33,68 @@ namespace Lab2v2.Controllers
         public async Task<ActionResult> AddProject(Project project)
         {
             var user = await _userManager.FindByNameAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-            project.ProjectUsers = new List<ApplicationUser>();
-            project.ProjectUsers.Add(user);
-            project.CreatedByUserId = user.Id;
-            project.DateAdded = DateTime.Now;
 
-            //List<ApplicationUser> users = new List<ApplicationUser>();
-            //users.Add(user);
+            if (user == null)
+            {
+                return NotFound();
+            }
 
-            //var project = new Project
-            //{
-            //    Name = projectViewModel.Name,
-            //    DateAdded = DateTime.Now,
-            //    TaskList = new List<Models.Task>(),
-            //    ProjectUsers = users
-            //};
+          
+            await _projectService.AddProject(user, project);
 
-            _context.Projects.Add(project);
-            await _context.SaveChangesAsync();
+            return Ok();
 
-            var projectViewModel = _mapper.Map<ProjectViewModel>(project);
-
-            return CreatedAtAction("GetProject", projectViewModel);
         }
 
         [HttpGet]
-        public ActionResult<IEnumerable<ProjectViewModel>> GetProject()
+        public async Task<IEnumerable<ProjectViewModel>> GetProjects()
         {
-            return _context.Projects.Include(project => project.ProjectUsers).Include(project => project.TaskList).Select(project => _mapper.Map<ProjectViewModel>(project)).ToList();
+            return await _projectService.GetProjects();
             
         }
 
         [HttpPut("PutUserToProject/{id}")]
-        public async Task<ActionResult<ProjectViewModel>> PutUserToProject(int id)
+        public async Task<ActionResult> PutUserToProject(int id)
         {
-            Project project = _context.Projects.Find(id);
             var user = await _userManager.FindByNameAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-            project.ProjectUsers = new List<ApplicationUser>();
-            project.ProjectUsers.Add(user);
-
-            _context.Entry(project).State = EntityState.Modified;
-
-            try
+            if (user == null)
             {
-                await _context.SaveChangesAsync();
+                return NotFound();
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ProjectExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-            var projectViewModel = _mapper.Map<ProjectViewModel>(project);
-            return Ok(projectViewModel);
+            await _projectService.PutUserToProject(user, id);
+            return Ok();
         }
 
         [HttpPut("UpdateProject")]
-        public async Task<ActionResult<ProjectViewModel>> UpdateTask(UpdateProjectViewModel projectToUpdate)
+        public async Task<ActionResult> UpdateProject(UpdateProjectViewModel projectToUpdate)
         {
-            Project project = _context.Projects.Find(projectToUpdate.Id);
-            project.Name = projectToUpdate.Name;
-            _context.Entry(project).State = EntityState.Modified;
-
-            try
+            var response = await _projectService.UpdateProject(projectToUpdate);
+            if (response == false)
             {
-                await _context.SaveChangesAsync();
+                return NotFound();
             }
-            catch (DbUpdateConcurrencyException)
+            else
             {
-                if (!ProjectExists(project.Id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                return Ok();
             }
-            var projectViewModel = _mapper.Map<ProjectViewModel>(project);
-            return Ok(projectViewModel);
+            
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProject(int id)
         {
-            var project = await _context.Projects.FindAsync(id);
-            if (project == null)
+            var response = await _projectService.DeleteProject(id);
+            if (response == false)
             {
                 return NotFound();
             }
+            else
+            {
+                return Ok();
+            }
 
-            _context.Projects.Remove(project);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
         }
 
-        private bool ProjectExists(int id)
-        {
-            return _context.Projects.Any(e => e.Id == id);
-        }
+       
     }
 }

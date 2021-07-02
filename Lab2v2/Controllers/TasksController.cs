@@ -17,13 +17,11 @@ namespace Lab2v2.Controllers
     [ApiController]
     public class TasksController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
+        private ITaskService _taskService;
 
-        public TasksController(ApplicationDbContext context, IMapper mapper)
+        public TasksController(ITaskService taskService)
         {
-            _context = context;
-            _mapper = mapper;
+            _taskService = taskService;
         }
 
         /// <summary>
@@ -35,7 +33,7 @@ namespace Lab2v2.Controllers
         [Route("filter/status")]
         public ActionResult<IEnumerable<TaskViewModel>> FilterTasksByStatus(string status)
         {
-            return _context.Tasks.Where(t => t.Status == status).Select(task => _mapper.Map<TaskViewModel>(task)).ToList();
+            return _taskService.FilterTasksByStatus(status);
         }
 
 
@@ -52,10 +50,7 @@ namespace Lab2v2.Controllers
         public ActionResult<IEnumerable<TaskViewModel>> FilterTasksByDeadline (string startDateTime, string endDateTime )
         {
 
-            DateTime startDate = Convert.ToDateTime(startDateTime);
-            DateTime endDate = Convert.ToDateTime(endDateTime);
-
-            return _context.Tasks.Where(task => task.Deadline >= startDate && task.Deadline < endDate).Select(task => _mapper.Map<TaskViewModel>(task)).ToList();
+            return _taskService.FilterTasksByDeadline(startDateTime, endDateTime);
         }
 
 
@@ -65,9 +60,9 @@ namespace Lab2v2.Controllers
         /// <returns></returns>
         // GET: api/Tasks
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<TaskViewModel>>> GetTasks()
+        public async Task<IEnumerable<TaskViewModel>> GetTasks()
         {
-            return await _context.Tasks.Select(task => _mapper.Map<TaskViewModel>(task)).ToListAsync();
+            return await _taskService.GetTasks();
         }
 
 
@@ -79,9 +74,7 @@ namespace Lab2v2.Controllers
         [HttpGet("{id}/Comments")]
         public ActionResult<IEnumerable<TaskWithCommentsViewModel>> GetComments (int id)
         {
-            var query = _context.Tasks.Where(task => task.Id == id).Include(task => task.Comments)
-                .Select(task => _mapper.Map<TaskWithCommentsViewModel>(task));
-            return query.ToList();
+            return _taskService.GetComments(id);
            
         }
 
@@ -91,21 +84,15 @@ namespace Lab2v2.Controllers
         /// <param name="comment"></param>
         /// <returns></returns>
         [HttpPost("Comments")]
-        public ActionResult<CommentViewModel> PostComment (Comment comment)
+        public ActionResult PostComment (Comment comment)
         {
-            comment.Task = _context.Tasks.Find(comment.TaskId);
-           
-            if (comment.Task == null)
+            if (_taskService.PostComment(comment) == false)
             {
                 return NotFound();
             }
-            comment.DateTime = DateTime.Now;
-            _context.Comments.Add(comment);
-            _context.SaveChanges();
 
-            var CommentViewModel = _mapper.Map<CommentViewModel>(comment);
 
-            return Ok(CommentViewModel);
+            return Ok();
 
         }
 
@@ -118,14 +105,13 @@ namespace Lab2v2.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<TaskViewModel>> GetTask(int id)
         {
-            var task = await _context.Tasks.FindAsync(id);
-
-            if (task == null)
+            var taskView = await _taskService.GetTask(id);
+            if (taskView == null)
             {
                 return NotFound();
             }
-            var taskViewModel = _mapper.Map<TaskViewModel>(task);
-            return Ok(taskViewModel);
+
+            return taskView;
         }
 
 
@@ -138,32 +124,18 @@ namespace Lab2v2.Controllers
         // PUT: api/Tasks/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<ActionResult<TaskViewModel>> PutTask(int id, Task task)
+        public async Task<ActionResult> PutTask(int id, Task task)
         {
-            if (id != task.Id)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(task).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                await _taskService.PutTask(id, task);
             }
-            catch (DbUpdateConcurrencyException)
+            catch
             {
-                if (!TaskExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                return NotFound();
             }
-            var TaskViewModel = _mapper.Map<TaskViewModel>(task);
-            return Ok(TaskViewModel);
+
+            return NoContent();
         }
 
 
@@ -177,10 +149,8 @@ namespace Lab2v2.Controllers
         [HttpPost]
         public async Task<ActionResult<Task>> PostTask(TaskViewModel taskViewModel)
         {
-            Task task = _mapper.Map<Task>(taskViewModel);
-            task.DateAdded = DateTime.Now;
-            _context.Tasks.Add(task);
-            await _context.SaveChangesAsync();
+
+            var task = await _taskService.PostTask(taskViewModel);
 
            
             return CreatedAtAction("GetTask", task);
@@ -196,21 +166,13 @@ namespace Lab2v2.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTask(int id)
         {
-            var task = await _context.Tasks.FindAsync(id);
-            if (task == null)
+           if (await _taskService.DeleteTask(id) == false)
             {
                 return NotFound();
             }
-
-            _context.Tasks.Remove(task);
-            await _context.SaveChangesAsync();
-
             return NoContent();
         }
 
-        private bool TaskExists(int id)
-        {
-            return _context.Tasks.Any(e => e.Id == id);
-        }
+        
     }
 }
